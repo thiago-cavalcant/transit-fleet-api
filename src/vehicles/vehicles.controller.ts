@@ -1,11 +1,17 @@
+import { CreateTelemetryDto } from './dto/create-telemetry.dto';
 import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { VehiclesService } from './vehicles.service';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 
 @Controller('vehicles')
 export class VehiclesController {
-  constructor(private readonly vehiclesService: VehiclesService) {}
+  constructor(
+    private readonly vehiclesService: VehiclesService,
+    @InjectQueue('telemetry') private readonly telemetryQueue: Queue,
+  ) {}
 
   @Post()
   create(@Body() createVehicleDto: CreateVehicleDto) {
@@ -30,5 +36,17 @@ export class VehiclesController {
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.vehiclesService.remove(+id);
+  }
+
+    @Post(':id/telemetry')
+  async addTelemetry(
+    @Param('id') id: string,
+    @Body() createTelemetryDto: CreateTelemetryDto,
+  ) {
+    await this.telemetryQueue.add('update-mileage', {
+      vehicleId: +id,
+      mileage: createTelemetryDto.mileage,
+    });
+    return { message: 'Telemetria enfileirada com sucesso' };
   }
 }
